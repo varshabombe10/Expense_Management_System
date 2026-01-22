@@ -68,7 +68,7 @@ The **Pie Chart** dynamically updates when transactions are added.
 ## 🔧 Installation  
 ### 1️⃣ **Clone the Repository**
 ```sh
-git clone https://github.com/Atharv564/expense-management.git
+git clone (https://github.com/varshabombe10/Expense_Management_System.git)
 cd expense-management
 ```
 ### 2️⃣ **Create & Activate a Virtual Environment**
@@ -104,4 +104,4 @@ python manage.py runserver
 🔹 **Chart.js** - Pie Chart for Expense Analysis 📊  
 
 
-## 👨‍💻 Developed By   [Atharv..](https://github.com/Atharv564)
+## 👨‍💻 Developed By  (https://github.com/varshabombe10)
