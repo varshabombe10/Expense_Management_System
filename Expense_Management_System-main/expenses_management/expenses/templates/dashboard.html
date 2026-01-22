@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    <h2 class="mb-3">Dashboard</h2>
+
+    <!-- Summary Cards -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card text-white mb-4 shadow-sm" style="background: linear-gradient(135deg, #28a745, #218838);">
+                <div class="card-body text-center">
+                    <h5 class="fw-bold">Current Balance</h5>
+                    <h2 class="fw-bold"><i class="fa-solid fa-indian-rupee-sign"></i> {{ balance|default:"0.00" }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white mb-4 shadow-sm" style="background: linear-gradient(135deg, #17a2b8, #138496);">
+                <div class="card-body text-center">
+                    <h5 class="fw-bold">Total Credit</h5>
+                    <h2 class="fw-bold"><i class="fa-solid fa-arrow-up"></i> ₹{{ total_credits|default:"0.00" }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white mb-4 shadow-sm" style="background: linear-gradient(135deg, #dc3545, #c82333);">
+                <div class="card-body text-center">
+                    <h5 class="fw-bold">Total Debit</h5>
+                    <h2 class="fw-bold"><i class="fa-solid fa-arrow-down"></i> ₹{{ total_debits|default:"0.00" }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Transaction Form -->
+    <div class="card shadow-sm p-4 bg-light rounded">
+        <h4>Add Transaction</h4>
+        <form method="POST">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-success"><i class="fa-solid fa-plus"></i> Add</button>
+        </form>
+    </div>
+
+    <!-- Transaction History -->
+    <h4 class="mt-4">Transaction History</h4>
+    <div class="table-responsive" style="max-height: 380px; overflow-y: scroll; -ms-overflow-style: none; scrollbar-width: none;">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark" style="position: sticky; top: 0; z-index: 1;">
+                <tr>
+                    <th>Amount</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Payment Method</th> <!-- ✅ Added -->
+                    <th>Date</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td><strong><i class="fa-solid fa-indian-rupee-sign"></i> {{ transaction.amount }}</strong></td>
+                    <td>
+                        {% if transaction.transaction_type == 'credit' %}
+                            <span class="badge bg-success"><i class="fa-solid fa-arrow-up"></i> Credit</span>
+                        {% else %}
+                            <span class="badge bg-danger"><i class="fa-solid fa-arrow-down"></i> Debit</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ transaction.description }}</td>
+                    <td>{{ transaction.payment_method|default:"N/A" }}</td> <!-- ✅ No background color -->
+                    <td>{{ transaction.date }}</td>
+                    <td class="text-center">
+                        <a href="{% url 'edit_transaction' transaction.id %}" class="btn btn-warning btn-sm">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        <a href="{% url 'delete_transaction' transaction.id %}" class="btn btn-danger btn-sm">
+                            <i class="fa-solid fa-trash"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">No transactions yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>            
+        </table>
+    </div>
+
+    <!-- Monthly Pie Chart for Expenses -->
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card shadow-sm border-0 rounded">
+                    <div class="card-header bg-primary text-white fw-bold text-center">
+                        <i class="fa-solid fa-chart-pie me-2"></i> Monthly Expense Analysis
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-center align-items-center gap-3 mb-3">
+                            <label for="monthSelector" class="fw-bold text-dark">Select Month:</label>
+                            <input type="month" id="monthSelector" class="form-control w-auto" value="{{ today|date:'Y-m' }}">
+                        </div>
+
+                        <!-- Pie Chart -->
+                        <div class="d-flex justify-content-center">
+                            <div class="bg-white p-3 rounded shadow-sm" style="max-width: 350px; max-height: 350px;">
+                                <canvas id="monthlyPieChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <center><a href="{% url 'export_transactions' %}" class="btn btn-primary">Export Transactions</a></center>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const monthSelector = document.getElementById("monthSelector");
+            const ctx = document.getElementById("monthlyPieChart").getContext("2d");
+            let pieChart;
+
+            function fetchChartData(month) {
+                fetch(`/chart-data/?month=${month}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (pieChart) {
+                        pieChart.destroy(); // Destroy previous chart before updating
+                    }
+
+                    pieChart = new Chart(ctx, {
+                        type: 'pie',
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                data: data.values,
+                                backgroundColor: ['#28a745', '#dc3545'],
+                                hoverOffset: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: {
+                                animateRotate: true,
+                                animateScale: true
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        font: {
+                                            size: 14,
+                                            weight: 'bold'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+            }
+
+            fetchChartData(monthSelector.value);
+            monthSelector.addEventListener("change", function() {
+                fetchChartData(this.value);
+            });
+        });
+    </script>
+
+</div>
+{% endblock %}
